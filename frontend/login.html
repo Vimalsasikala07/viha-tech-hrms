@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="login-wrapper">
+  <div class="login-card">
+    <img src="assets/logo.png" alt="Viha Tech" class="logo">
+    <h1>HR Management System</h1>
+
+    <div id="loginError" class="alert alert-danger d-none"></div>
+
+    <form id="loginForm">
+      <div class="mb-3">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-control" id="email" placeholder="you@vihatech.com" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-control" id="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-vt w-100" id="loginBtn">Log In</button>
+    </form>
+
+    <div class="login-links">
+      <a href="#" id="forgotLink">Forgot password?</a>
+    </div>
+    <p class="text-center text-muted mt-3" style="font-size:0.75rem;">
+      Default admin: admin@vihatech.com / Admin@123
+    </p>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorBox = document.getElementById("loginError");
+    errorBox.classList.add("d-none");
+    const btn = document.getElementById("loginBtn");
+    btn.disabled = true;
+    btn.textContent = "Logging in...";
+
+    try {
+        const data = await api("/auth/login", {
+            method: "POST",
+            body: {
+                email: document.getElementById("email").value.trim(),
+                password: document.getElementById("password").value
+            }
+        });
+        localStorage.setItem("vt_token", data.token);
+        localStorage.setItem("vt_user", JSON.stringify(data));
+        window.location.href = "dashboard.html";
+    } catch (err) {
+        errorBox.textContent = err.message || "Login failed. Check your credentials.";
+        errorBox.classList.remove("d-none");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Log In";
+    }
+});
+
+document.getElementById("forgotLink").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const email = prompt("Enter your registered email to reset your password:");
+    if (!email) return;
+    try {
+        const res = await fetch(`${API_BASE}/auth/forgot-password?email=${encodeURIComponent(email)}`, { method: "POST" });
+        const data = await res.json();
+        alert(data.message || "If this account exists, a reset has been issued.");
+    } catch (err) {
+        alert("Could not process request right now.");
+    }
+});
+</script>
+</body>
+</html>

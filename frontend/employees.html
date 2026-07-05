@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employees - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Employees</h2>
+      <button class="btn btn-vt" data-bs-toggle="modal" data-bs-target="#employeeModal" onclick="openCreateModal()">
+        <i class="bi bi-plus-lg"></i> Add Employee
+      </button>
+    </div>
+
+    <div class="card-vt p-3 mb-3">
+      <input type="text" class="form-control" id="searchBox" placeholder="Search by name, email, or employee code…">
+    </div>
+
+    <div class="card-vt p-3">
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>Employee</th><th>Code</th><th>Department</th><th>Designation</th>
+              <th>Status</th><th>Joined</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="employeesBody">
+            <tr><td colspan="7" class="text-muted text-center py-4">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add / Edit Employee Modal -->
+<div class="modal fade" id="employeeModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="employeeModalTitle">Add Employee</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="employeeForm">
+          <input type="hidden" id="empId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-control" id="empName" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="empEmail" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phone</label>
+              <input type="text" class="form-control" id="empPhone">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Date of Birth</label>
+              <input type="date" class="form-control" id="empDob">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Date of Joining</label>
+              <input type="date" class="form-control" id="empDoj">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Salary (₹)</label>
+              <input type="number" class="form-control" id="empSalary" step="0.01">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Department</label>
+              <select class="form-select" id="empDepartment"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Designation</label>
+              <select class="form-select" id="empDesignation"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Reporting Manager</label>
+              <select class="form-select" id="empManager"><option value="">None</option></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Role</label>
+              <select class="form-select" id="empRole">
+                <option value="EMPLOYEE">Employee</option>
+                <option value="MANAGER">Manager</option>
+                <option value="HR">HR</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <select class="form-select" id="empStatus">
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Address</label>
+              <textarea class="form-control" id="empAddress" rows="2"></textarea>
+            </div>
+          </div>
+
+          <div id="uploadRow" class="row g-3 mt-1 d-none">
+            <div class="col-md-6">
+              <label class="form-label">Profile Photo</label>
+              <input type="file" class="form-control" id="empPhotoFile" accept="image/*">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Document (Aadhaar / PAN / Certificate)</label>
+              <input type="file" class="form-control" id="empDocFile">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-vt" onclick="saveEmployee()">Save Employee</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("employees");
+
+let allEmployees = [];
+let departments = [];
+let designations = [];
+let employeeModal;
+
+async function loadReferenceData() {
+    [departments, designations] = await Promise.all([api("/departments"), api("/designations")]);
+
+    document.getElementById("empDepartment").innerHTML =
+        `<option value="">Select department</option>` + departments.map(d => `<option value="${d.id}">${d.name}</option>`).join("");
+    document.getElementById("empDesignation").innerHTML =
+        `<option value="">Select designation</option>` + designations.map(d => `<option value="${d.id}">${d.title}</option>`).join("");
+}
+
+async function loadEmployees() {
+    allEmployees = await api("/employees");
+    document.getElementById("empManager").innerHTML =
+        `<option value="">None</option>` + allEmployees.map(e => `<option value="${e.id}">${e.name}</option>`).join("");
+    renderTable(allEmployees);
+}
+
+function renderTable(list) {
+    const body = document.getElementById("employeesBody");
+    body.innerHTML = list.length ? list.map(e => `
+        <tr>
+          <td><span class="avatar-sm me-2">${initials(e.name)}</span>${e.name}<div class="text-muted" style="font-size:0.78rem;">${e.email}</div></td>
+          <td>${e.employeeCode}</td>
+          <td>${e.departmentName || "—"}</td>
+          <td>${e.designationName || "—"}</td>
+          <td><span class="badge ${e.status === "ACTIVE" ? "badge-active" : "badge-inactive"}">${e.status}</span></td>
+          <td>${e.doj || "—"}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary" onclick="openEditModal(${e.id})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteEmployee(${e.id})"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`).join("") : `<tr><td colspan="7" class="text-muted text-center py-4">No employees found</td></tr>`;
+}
+
+document.getElementById("searchBox").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    renderTable(allEmployees.filter(emp =>
+        emp.name.toLowerCase().includes(q) || emp.email.toLowerCase().includes(q) || emp.employeeCode.toLowerCase().includes(q)
+    ));
+});
+
+function openCreateModal() {
+    document.getElementById("employeeForm").reset();
+    document.getElementById("empId").value = "";
+    document.getElementById("employeeModalTitle").textContent = "Add Employee";
+    document.getElementById("uploadRow").classList.add("d-none"); // uploads only after employee exists
+}
+
+function openEditModal(id) {
+    const e = allEmployees.find(x => x.id === id);
+    if (!e) return;
+    document.getElementById("employeeModalTitle").textContent = "Edit Employee";
+    document.getElementById("empId").value = e.id;
+    document.getElementById("empName").value = e.name;
+    document.getElementById("empEmail").value = e.email;
+    document.getElementById("empPhone").value = e.phone || "";
+    document.getElementById("empDob").value = e.dob || "";
+    document.getElementById("empDoj").value = e.doj || "";
+    document.getElementById("empSalary").value = e.salary || "";
+    document.getElementById("empDepartment").value = e.departmentId || "";
+    document.getElementById("empDesignation").value = e.designationId || "";
+    document.getElementById("empManager").value = e.reportingManagerId || "";
+    document.getElementById("empRole").value = e.role || "EMPLOYEE";
+    document.getElementById("empStatus").value = e.status || "ACTIVE";
+    document.getElementById("empAddress").value = e.address || "";
+    document.getElementById("uploadRow").classList.remove("d-none");
+    employeeModal.show();
+}
+
+async function saveEmployee() {
+    const id = document.getElementById("empId").value;
+    const dto = {
+        name: document.getElementById("empName").value,
+        email: document.getElementById("empEmail").value,
+        phone: document.getElementById("empPhone").value,
+        dob: document.getElementById("empDob").value || null,
+        doj: document.getElementById("empDoj").value || null,
+        salary: document.getElementById("empSalary").value || null,
+        departmentId: document.getElementById("empDepartment").value || null,
+        designationId: document.getElementById("empDesignation").value || null,
+        reportingManagerId: document.getElementById("empManager").value || null,
+        role: document.getElementById("empRole").value,
+        status: document.getElementById("empStatus").value,
+        address: document.getElementById("empAddress").value
+    };
+
+    try {
+        let saved;
+        if (id) {
+            saved = await api(`/employees/${id}`, { method: "PUT", body: dto });
+        } else {
+            saved = await api("/employees", { method: "POST", body: dto });
+        }
+
+        const photoFile = document.getElementById("empPhotoFile").files[0];
+        const docFile = document.getElementById("empDocFile").files[0];
+        if (photoFile) {
+            const fd = new FormData(); fd.append("file", photoFile);
+            await api(`/employees/${saved.id}/photo`, { method: "POST", body: fd, isForm: true });
+        }
+        if (docFile) {
+            const fd = new FormData(); fd.append("file", docFile);
+            await api(`/employees/${saved.id}/documents`, { method: "POST", body: fd, isForm: true });
+        }
+
+        employeeModal.hide();
+        await loadEmployees();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+async function deleteEmployee(id) {
+    if (!confirm("Delete this employee? This cannot be undone.")) return;
+    try {
+        await api(`/employees/${id}`, { method: "DELETE" });
+        await loadEmployees();
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+(async function init() {
+    employeeModal = new bootstrap.Modal(document.getElementById("employeeModal"));
+    await loadReferenceData();
+    await loadEmployees();
+})();
+</script>
+</body>
+</html>

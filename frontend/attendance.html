@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Attendance</h2>
+    </div>
+
+    <div class="card-vt p-3 mb-4">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <label class="form-label mb-0">Mark attendance for:</label>
+        <select class="form-select w-auto" id="selfEmployee"></select>
+        <button class="btn btn-vt" onclick="checkIn()"><i class="bi bi-box-arrow-in-right"></i> Check In</button>
+        <button class="btn btn-outline-secondary" onclick="checkOut()"><i class="bi bi-box-arrow-right"></i> Check Out</button>
+        <span id="checkStatus" class="text-muted"></span>
+      </div>
+    </div>
+
+    <div class="card-vt p-3">
+      <h5 class="mb-3">Today's Attendance</h5>
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>Employee</th><th>Check-in</th><th>Check-out</th><th>Late</th><th>Early Logout</th><th>Status</th></tr></thead>
+          <tbody id="attBody"><tr><td colspan="6" class="text-muted text-center py-4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("attendance");
+
+async function loadEmployeeSelect() {
+    const employees = await api("/employees");
+    document.getElementById("selfEmployee").innerHTML = employees.map(e => `<option value="${e.id}">${e.name} (${e.employeeCode})</option>`).join("");
+    const user = getUser();
+    if (user && user.employeeId) document.getElementById("selfEmployee").value = user.employeeId;
+}
+
+async function checkIn() {
+    const id = document.getElementById("selfEmployee").value;
+    try {
+        await api(`/attendance/checkin/${id}`, { method: "POST" });
+        document.getElementById("checkStatus").textContent = "Checked in ✓";
+        loadToday();
+    } catch (err) { alert(err.message); }
+}
+
+async function checkOut() {
+    const id = document.getElementById("selfEmployee").value;
+    try {
+        await api(`/attendance/checkout/${id}`, { method: "POST" });
+        document.getElementById("checkStatus").textContent = "Checked out ✓";
+        loadToday();
+    } catch (err) { alert(err.message); }
+}
+
+async function loadToday() {
+    const records = await api("/attendance/today");
+    document.getElementById("attBody").innerHTML = records.length ? records.map(r => `
+        <tr>
+          <td>${r.employee?.name || "—"}</td>
+          <td>${r.checkIn || "—"}</td>
+          <td>${r.checkOut || "—"}</td>
+          <td>${r.lateLogin ? '<span class="badge badge-pending">Late</span>' : "—"}</td>
+          <td>${r.earlyLogout ? '<span class="badge badge-pending">Early</span>' : "—"}</td>
+          <td><span class="badge badge-active">${r.status}</span></td>
+        </tr>`).join("") : `<tr><td colspan="6" class="text-muted text-center py-4">No check-ins yet today</td></tr>`;
+}
+
+(async function init() {
+    await loadEmployeeSelect();
+    await loadToday();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leave Management - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Leave Management</h2>
+      <button class="btn btn-vt" data-bs-toggle="modal" data-bs-target="#leaveModal"><i class="bi bi-plus-lg"></i> Apply Leave</button>
+    </div>
+
+    <div class="card-vt p-3">
+      <h5 class="mb-3">All Leave Requests</h5>
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+          <tbody id="leaveBody"><tr><td colspan="7" class="text-muted text-center py-4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal fade" id="leaveModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Apply Leave</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Employee</label>
+          <select class="form-select" id="leaveEmployee"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Leave Type</label>
+          <select class="form-select" id="leaveType"></select>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Start Date</label>
+            <input type="date" class="form-control" id="leaveStart">
+          </div>
+          <div class="col-6">
+            <label class="form-label">End Date</label>
+            <input type="date" class="form-control" id="leaveEnd">
+          </div>
+        </div>
+        <div class="mb-3 mt-2">
+          <label class="form-label">Reason</label>
+          <textarea class="form-control" id="leaveReason" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-vt" onclick="applyLeave()">Submit</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("leave");
+let leaveModal;
+
+async function loadOptions() {
+    const [employees, types] = await Promise.all([api("/employees"), api("/leave/types")]);
+    document.getElementById("leaveEmployee").innerHTML = employees.map(e => `<option value="${e.id}">${e.name}</option>`).join("");
+    document.getElementById("leaveType").innerHTML = types.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+    const user = getUser();
+    if (user && user.employeeId) document.getElementById("leaveEmployee").value = user.employeeId;
+}
+
+async function loadLeaves() {
+    const requests = await api("/leave/all");
+    document.getElementById("leaveBody").innerHTML = requests.length ? requests.map(l => `
+        <tr>
+          <td>${l.employee?.name || "—"}</td>
+          <td>${l.leaveType?.name || "—"}</td>
+          <td>${l.startDate}</td>
+          <td>${l.endDate}</td>
+          <td>${l.reason || "—"}</td>
+          <td><span class="badge ${l.status === 'APPROVED' ? 'badge-active' : l.status === 'REJECTED' ? 'badge-inactive' : 'badge-pending'}">${l.status}</span></td>
+          <td class="text-end">
+            ${l.status === 'PENDING' ? `
+              <button class="btn btn-sm btn-outline-success" onclick="decide(${l.id}, 'approve')"><i class="bi bi-check-lg"></i></button>
+              <button class="btn btn-sm btn-outline-danger" onclick="decide(${l.id}, 'reject')"><i class="bi bi-x-lg"></i></button>` : ""}
+          </td>
+        </tr>`).join("") : `<tr><td colspan="7" class="text-muted text-center py-4">No leave requests yet</td></tr>`;
+}
+
+async function applyLeave() {
+    const params = new URLSearchParams({
+        employeeId: document.getElementById("leaveEmployee").value,
+        leaveTypeId: document.getElementById("leaveType").value,
+        startDate: document.getElementById("leaveStart").value,
+        endDate: document.getElementById("leaveEnd").value,
+        reason: document.getElementById("leaveReason").value
+    });
+    try {
+        await api(`/leave/apply?${params.toString()}`, { method: "POST" });
+        leaveModal.hide();
+        loadLeaves();
+    } catch (err) { alert(err.message); }
+}
+
+async function decide(id, action) {
+    const user = getUser();
+    const approverId = user.employeeId;
+    try {
+        await api(`/leave/${id}/${action}?approverId=${approverId}`, { method: "POST" });
+        loadLeaves();
+    } catch (err) { alert(err.message); }
+}
+
+(async function init() {
+    leaveModal = new bootstrap.Modal(document.getElementById("leaveModal"));
+    await loadOptions();
+    await loadLeaves();
+})();
+</script>
+</body>
+</html>

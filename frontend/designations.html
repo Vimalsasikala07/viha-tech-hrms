@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Designations - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Designations</h2>
+      <button class="btn btn-vt" data-bs-toggle="modal" data-bs-target="#desModal" onclick="openCreate()">
+        <i class="bi bi-plus-lg"></i> Add Designation
+      </button>
+    </div>
+    <div class="card-vt p-3">
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>Title</th><th>Salary Grade</th><th></th></tr></thead>
+          <tbody id="desBody"><tr><td colspan="3" class="text-muted text-center py-4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal fade" id="desModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="desModalTitle">Add Designation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="desId">
+        <div class="mb-3">
+          <label class="form-label">Title</label>
+          <input type="text" class="form-control" id="desTitle" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Salary Grade</label>
+          <input type="text" class="form-control" id="desGrade" placeholder="e.g. G2">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-vt" onclick="saveDes()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("designations");
+let desModal, allDes = [];
+
+async function loadDes() {
+    allDes = await api("/designations");
+    document.getElementById("desBody").innerHTML = allDes.length ? allDes.map(d => `
+        <tr>
+          <td>${d.title}</td>
+          <td>${d.salaryGrade || "—"}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary" onclick="openEdit(${d.id})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteDes(${d.id})"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`).join("") : `<tr><td colspan="3" class="text-muted text-center py-4">No designations yet</td></tr>`;
+}
+
+function openCreate() {
+    document.getElementById("desModalTitle").textContent = "Add Designation";
+    document.getElementById("desId").value = "";
+    document.getElementById("desTitle").value = "";
+    document.getElementById("desGrade").value = "";
+}
+
+function openEdit(id) {
+    const d = allDes.find(x => x.id === id);
+    document.getElementById("desModalTitle").textContent = "Edit Designation";
+    document.getElementById("desId").value = d.id;
+    document.getElementById("desTitle").value = d.title;
+    document.getElementById("desGrade").value = d.salaryGrade || "";
+    desModal.show();
+}
+
+async function saveDes() {
+    const id = document.getElementById("desId").value;
+    const dto = { title: document.getElementById("desTitle").value, salaryGrade: document.getElementById("desGrade").value };
+    try {
+        if (id) await api(`/designations/${id}`, { method: "PUT", body: dto });
+        else await api("/designations", { method: "POST", body: dto });
+        desModal.hide();
+        await loadDes();
+    } catch (err) { alert(err.message); }
+}
+
+async function deleteDes(id) {
+    if (!confirm("Delete this designation?")) return;
+    try { await api(`/designations/${id}`, { method: "DELETE" }); await loadDes(); }
+    catch (err) { alert(err.message); }
+}
+
+(function init() {
+    desModal = new bootstrap.Modal(document.getElementById("desModal"));
+    loadDes();
+})();
+</script>
+</body>
+</html>

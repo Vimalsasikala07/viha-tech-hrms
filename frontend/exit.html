@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exit Management - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Exit Management</h2>
+    </div>
+    <div class="card-vt">
+      <div class="coming-soon">
+        <i class="bi bi-box-arrow-right"></i>
+        <h4>Exit Management module</h4>
+        <p class="mx-auto" style="max-width:480px;">Manage resignations, notice periods, exit interviews, clearance, and full & final settlement.</p>
+        <p class="text-muted" style="font-size:0.85rem;">The database tables for this module already exist in <code>schema.sql</code> — this page is ready to be wired up to REST endpoints the same way Employees and Leave were.</p>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("exit");
+</script>
+</body>
+</html>

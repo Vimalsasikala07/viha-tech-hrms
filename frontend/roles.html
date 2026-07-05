@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Admin Panel</h2>
+      <span class="text-muted">Roles, permissions &amp; account access</span>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Admins</div>
+          <div class="stat-value" id="countAdmin">–</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">HR</div>
+          <div class="stat-value" id="countHr">–</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Managers</div>
+          <div class="stat-value" id="countManager">–</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Employees</div>
+          <div class="stat-value" id="countEmployee">–</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-vt p-3 mb-3">
+      <input type="text" class="form-control" id="adminSearch" placeholder="Search by name or email…">
+    </div>
+
+    <div class="card-vt p-3">
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr><th>Employee</th><th>Email</th><th>Current Role</th><th>Change Role</th><th>Account Status</th></tr>
+          </thead>
+          <tbody id="adminBody">
+            <tr><td colspan="5" class="text-muted text-center py-4">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted mt-2 mb-0" style="font-size:0.8rem;">
+        Role changes and status toggles take effect immediately and control what that
+        employee can access next time they log in.
+      </p>
+    </div>
+  </main>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("roles");
+
+let allEmployees = [];
+const ROLES = ["ADMIN", "HR", "MANAGER", "EMPLOYEE"];
+
+function renderCounts(list) {
+    document.getElementById("countAdmin").textContent = list.filter(e => e.role === "ADMIN").length;
+    document.getElementById("countHr").textContent = list.filter(e => e.role === "HR").length;
+    document.getElementById("countManager").textContent = list.filter(e => e.role === "MANAGER").length;
+    document.getElementById("countEmployee").textContent = list.filter(e => e.role === "EMPLOYEE").length;
+}
+
+function renderTable(list) {
+    const body = document.getElementById("adminBody");
+    body.innerHTML = list.length ? list.map(e => `
+        <tr>
+          <td><span class="avatar-sm me-2">${initials(e.name)}</span>${e.name}<div class="text-muted" style="font-size:0.78rem;">${e.employeeCode}</div></td>
+          <td>${e.email}</td>
+          <td><span class="badge badge-active">${e.role}</span></td>
+          <td style="max-width:160px;">
+            <select class="form-select form-select-sm" onchange="changeRole(${e.id}, this.value)">
+              ${ROLES.map(r => `<option value="${r}" ${r === e.role ? "selected" : ""}>${r}</option>`).join("")}
+            </select>
+          </td>
+          <td>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" role="switch"
+                     ${e.status === "ACTIVE" ? "checked" : ""}
+                     onchange="toggleStatus(${e.id}, this.checked)">
+              <label class="form-check-label" style="font-size:0.85rem;">
+                ${e.status === "ACTIVE" ? "Active" : "Inactive"}
+              </label>
+            </div>
+          </td>
+        </tr>`).join("") : `<tr><td colspan="5" class="text-muted text-center py-4">No employees found</td></tr>`;
+}
+
+async function loadEmployees() {
+    allEmployees = await api("/employees");
+    renderCounts(allEmployees);
+    renderTable(allEmployees);
+}
+
+document.getElementById("adminSearch").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    renderTable(allEmployees.filter(emp => emp.name.toLowerCase().includes(q) || emp.email.toLowerCase().includes(q)));
+});
+
+async function changeRole(id, newRole) {
+    const emp = allEmployees.find(e => e.id === id);
+    if (!emp) return;
+    const currentUser = getUser();
+    if (emp.email === currentUser.email && newRole !== "ADMIN") {
+        if (!confirm("You're changing your own role away from ADMIN. You may lose access to this page. Continue?")) {
+            loadEmployees();
+            return;
+        }
+    }
+    try {
+        await api(`/employees/${id}`, { method: "PUT", body: { ...stripForUpdate(emp), role: newRole } });
+        await loadEmployees();
+    } catch (err) {
+        alert(err.message);
+        loadEmployees();
+    }
+}
+
+async function toggleStatus(id, isActive) {
+    const emp = allEmployees.find(e => e.id === id);
+    if (!emp) return;
+    try {
+        await api(`/employees/${id}`, { method: "PUT", body: { ...stripForUpdate(emp), status: isActive ? "ACTIVE" : "INACTIVE" } });
+        await loadEmployees();
+    } catch (err) {
+        alert(err.message);
+        loadEmployees();
+    }
+}
+
+// The PUT /employees/{id} endpoint expects the same shape used on the Employees page.
+function stripForUpdate(e) {
+    return {
+        name: e.name,
+        email: e.email,
+        phone: e.phone,
+        dob: e.dob,
+        doj: e.doj,
+        salary: e.salary,
+        departmentId: e.departmentId,
+        designationId: e.designationId,
+        reportingManagerId: e.reportingManagerId,
+        role: e.role,
+        status: e.status,
+        address: e.address
+    };
+}
+
+loadEmployees();
+</script>
+</body>
+</html>

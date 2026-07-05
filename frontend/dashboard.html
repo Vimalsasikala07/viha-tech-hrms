@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Dashboard</h2>
+      <span class="text-muted" id="todayDate"></span>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Employees</div>
+          <div class="stat-value" id="statEmployees">–</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Departments</div>
+          <div class="stat-value" id="statDepartments">–</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Present Today</div>
+          <div class="stat-value" id="statPresentToday">–</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Pending Leave Requests</div>
+          <div class="stat-value" id="statPendingLeave">–</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card-vt p-3">
+          <h5 class="mb-3">Recent Employees</h5>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead><tr><th>Employee</th><th>Department</th><th>Designation</th><th>Status</th></tr></thead>
+              <tbody id="recentEmployeesBody">
+                <tr><td colspan="4" class="text-muted text-center py-4">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="card-vt p-3">
+          <h5 class="mb-3">Pending Leave Requests</h5>
+          <div id="pendingLeaveList" class="text-muted">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("dashboard");
+document.getElementById("todayDate").textContent = new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+async function loadDashboard() {
+    try {
+        const [employees, departments, todayAttendance, leaveRequests] = await Promise.all([
+            api("/employees"),
+            api("/departments"),
+            api("/attendance/today"),
+            api("/leave/all")
+        ]);
+
+        document.getElementById("statEmployees").textContent = employees.length;
+        document.getElementById("statDepartments").textContent = departments.length;
+        document.getElementById("statPresentToday").textContent = todayAttendance.length;
+        const pending = leaveRequests.filter(l => l.status === "PENDING");
+        document.getElementById("statPendingLeave").textContent = pending.length;
+
+        const recentBody = document.getElementById("recentEmployeesBody");
+        const recent = employees.slice(-6).reverse();
+        recentBody.innerHTML = recent.length ? recent.map(e => `
+            <tr>
+              <td><span class="avatar-sm me-2">${initials(e.name)}</span>${e.name}</td>
+              <td>${e.departmentName || "—"}</td>
+              <td>${e.designationName || "—"}</td>
+              <td><span class="badge ${e.status === "ACTIVE" ? "badge-active" : "badge-inactive"}">${e.status}</span></td>
+            </tr>`).join("") : `<tr><td colspan="4" class="text-muted text-center py-4">No employees yet</td></tr>`;
+
+        const pendingList = document.getElementById("pendingLeaveList");
+        pendingList.innerHTML = pending.length ? pending.slice(0, 6).map(l => `
+            <div class="d-flex justify-content-between border-bottom py-2">
+              <div>
+                <div style="font-weight:600;">${l.employee?.name || "Employee"}</div>
+                <div class="text-muted" style="font-size:0.8rem;">${l.leaveType?.name || ""} · ${l.startDate} to ${l.endDate}</div>
+              </div>
+              <span class="badge badge-pending align-self-center">Pending</span>
+            </div>`).join("") : `<p class="text-muted mb-0">No pending requests 🎉</p>`;
+
+    } catch (err) {
+        console.error(err);
+    }
+}
+loadDashboard();
+</script>
+</body>
+</html>

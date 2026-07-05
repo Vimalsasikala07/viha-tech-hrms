@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Directory - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+  <main class="main-content">
+    <div class="topbar"><h2>Employee Directory</h2></div>
+    <div class="card-vt p-3 mb-3">
+      <input type="text" class="form-control" id="dirSearch" placeholder="Search by name, department, or designation…">
+    </div>
+    <div class="row g-3" id="dirGrid"></div>
+  </main>
+</div>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("directory");
+let allEmployees = [];
+
+function render(list) {
+    const grid = document.getElementById("dirGrid");
+    grid.innerHTML = list.length ? list.map(e => `
+        <div class="col-md-4 col-lg-3">
+          <div class="card-vt p-3 h-100 text-center">
+            <div class="avatar-sm mx-auto mb-2" style="width:52px;height:52px;font-size:1.1rem;">${initials(e.name)}</div>
+            <div style="font-weight:700;">${e.name}</div>
+            <div class="text-muted" style="font-size:0.85rem;">${e.designationName || "—"}</div>
+            <div class="text-muted" style="font-size:0.8rem;">${e.departmentName || "—"}</div>
+            <hr>
+            <div style="font-size:0.8rem;"><i class="bi bi-envelope"></i> ${e.email}</div>
+            <div style="font-size:0.8rem;"><i class="bi bi-telephone"></i> ${e.phone || "—"}</div>
+          </div>
+        </div>`).join("") : `<p class="text-muted text-center w-100 py-4">No employees found</p>`;
+}
+
+document.getElementById("dirSearch").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase();
+    render(allEmployees.filter(emp =>
+        emp.name.toLowerCase().includes(q) ||
+        (emp.departmentName || "").toLowerCase().includes(q) ||
+        (emp.designationName || "").toLowerCase().includes(q)
+    ));
+});
+
+(async function init() {
+    allEmployees = await api("/employees");
+    render(allEmployees);
+})();
+</script>
+</body>
+</html>

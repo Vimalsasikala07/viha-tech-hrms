@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Departments - Viha Tech HRMS</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav class="sidebar" id="sidebar-container"></nav>
+  <main class="main-content">
+    <div class="topbar">
+      <h2>Departments</h2>
+      <button class="btn btn-vt" data-bs-toggle="modal" data-bs-target="#deptModal" onclick="openCreate()">
+        <i class="bi bi-plus-lg"></i> Add Department
+      </button>
+    </div>
+    <div class="card-vt p-3">
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead><tr><th>Name</th><th>Department Head</th><th></th></tr></thead>
+          <tbody id="deptBody"><tr><td colspan="3" class="text-muted text-center py-4">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal fade" id="deptModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deptModalTitle">Add Department</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="deptId">
+        <div class="mb-3">
+          <label class="form-label">Department Name</label>
+          <input type="text" class="form-control" id="deptName" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Department Head</label>
+          <input type="text" class="form-control" id="deptHead">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-vt" onclick="saveDept()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+requireAuth();
+renderSidebar("departments");
+let deptModal, allDepts = [];
+
+async function loadDepts() {
+    allDepts = await api("/departments");
+    document.getElementById("deptBody").innerHTML = allDepts.length ? allDepts.map(d => `
+        <tr>
+          <td>${d.name}</td>
+          <td>${d.departmentHead || "—"}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary" onclick="openEdit(${d.id})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteDept(${d.id})"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`).join("") : `<tr><td colspan="3" class="text-muted text-center py-4">No departments yet</td></tr>`;
+}
+
+function openCreate() {
+    document.getElementById("deptModalTitle").textContent = "Add Department";
+    document.getElementById("deptId").value = "";
+    document.getElementById("deptName").value = "";
+    document.getElementById("deptHead").value = "";
+}
+
+function openEdit(id) {
+    const d = allDepts.find(x => x.id === id);
+    document.getElementById("deptModalTitle").textContent = "Edit Department";
+    document.getElementById("deptId").value = d.id;
+    document.getElementById("deptName").value = d.name;
+    document.getElementById("deptHead").value = d.departmentHead || "";
+    deptModal.show();
+}
+
+async function saveDept() {
+    const id = document.getElementById("deptId").value;
+    const dto = { name: document.getElementById("deptName").value, departmentHead: document.getElementById("deptHead").value };
+    try {
+        if (id) await api(`/departments/${id}`, { method: "PUT", body: dto });
+        else await api("/departments", { method: "POST", body: dto });
+        deptModal.hide();
+        await loadDepts();
+    } catch (err) { alert(err.message); }
+}
+
+async function deleteDept(id) {
+    if (!confirm("Delete this department?")) return;
+    try { await api(`/departments/${id}`, { method: "DELETE" }); await loadDepts(); }
+    catch (err) { alert(err.message); }
+}
+
+(function init() {
+    deptModal = new bootstrap.Modal(document.getElementById("deptModal"));
+    loadDepts();
+})();
+</script>
+</body>
+</html>
